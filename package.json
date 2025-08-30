@@ -1,0 +1,29 @@
+{
+  "name": "telegram-notification-woker",
+  "version": "1.0.0",
+  "description": "",
+  "main": "worker.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "start": "node worker.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/InnovationEstate/telegram-worker.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/InnovationEstate/telegram-worker/issues"
+  },
+  "homepage": "https://github.com/InnovationEstate/telegram-worker#readme",
+  "dependencies": {
+    "dotenv": "^17.2.1",
+    "firebase": "^12.2.1",
+    "node-telegram-bot-api": "^0.66.0"
+  }
+}
