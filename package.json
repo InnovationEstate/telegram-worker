@@ -5,7 +5,7 @@
   "type": "module",
   "main": "worker.js",
   "scripts": {
-    "start": "node worker.js"
+    "start": "node server.js"
   },
   "repository": {
     "type": "git",
