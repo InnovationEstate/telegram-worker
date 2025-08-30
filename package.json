@@ -1,11 +1,9 @@
 {
-  "name": "telegram-notification-woker",
+  "name": "telegram-notification-worker",
   "version": "1.0.0",
-  "description": "",
+  "description": "Worker for sending Telegram notifications",
+  "type": "module",
   "main": "worker.js",
-  "directories": {
-    "lib": "lib"
-  },
   "scripts": {
     "start": "node worker.js"
   },
@@ -16,13 +14,13 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module",
   "bugs": {
     "url": "https://github.com/InnovationEstate/telegram-worker/issues"
   },
   "homepage": "https://github.com/InnovationEstate/telegram-worker#readme",
   "dependencies": {
-    "dotenv": "^17.2.1",
+    "axios": "^1.6.8",
+    "dotenv": "^16.4.5",
     "firebase": "^12.2.1",
     "node-cron": "^4.2.1",
     "node-telegram-bot-api": "^0.66.0"
