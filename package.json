@@ -16,7 +16,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "bugs": {
     "url": "https://github.com/InnovationEstate/telegram-worker/issues"
   },
@@ -24,6 +24,7 @@
   "dependencies": {
     "dotenv": "^17.2.1",
     "firebase": "^12.2.1",
+    "node-cron": "^4.2.1",
     "node-telegram-bot-api": "^0.66.0"
   }
 }
