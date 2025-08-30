@@ -133,3 +133,5 @@ New Week Off: ${day}`;
 
 // Start the worker
 initNotifications();
+
+export { initNotifications };
