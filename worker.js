@@ -1,6 +1,6 @@
 import { getDatabase, ref, onChildAdded, onChildChanged, get } from "firebase/database";
 import {app} from "./lib/firebase.js"      // your existing firebase.js
-import { sendTelegramMessage } from "./utils/telegram"; // your existing telegram.js
+import { sendTelegramMessage } from "./utils/telegram.js"; // your existing telegram.js
 import cron from "node-cron";
 
 // Firebase DB
