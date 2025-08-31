@@ -1,6 +1,8 @@
+
+
 // import { getDatabase, ref, onChildAdded, onChildChanged, get } from "firebase/database";
-// import {app} from "./lib/firebase.js"      // your existing firebase.js
-// import { sendTelegramMessage } from "./utils/telegram.js"; // your existing telegram.js
+// import { app } from "./lib/firebase.js"; // your existing firebase.js
+// import { queueTelegramMessage } from "./utils/telegramQueue.js"; // use queue
 // import cron from "node-cron";
 
 // // Firebase DB
@@ -47,7 +49,7 @@
 // Type: ${leave.type || "N/A"}
 // Reason: ${leave.reason}
 // Status: ${leave.status}`;
-//     sendTelegramMessage(message);
+//     queueTelegramMessage(message);
 //   });
 
 //   onChildChanged(leaveRef, (snapshot) => {
@@ -61,7 +63,7 @@
 // Type: ${leave.type || "N/A"}
 // Reason: ${leave.reason}
 // Status: ${leave.status}`;
-//     sendTelegramMessage(message);
+//     queueTelegramMessage(message);
 //   });
 
 //   // Employee logins
@@ -81,7 +83,7 @@
 // Time: ${data.istLoginTime || "N/A"}
 // Location: ${locationAddress}
 // Device: ${data.device || "N/A"}`;
-//       sendTelegramMessage(message);
+//       queueTelegramMessage(message);
 //     });
 //   });
 
@@ -102,7 +104,7 @@
 // Employee: ${emp?.name || "N/A"}
 // Employee ID: ${emp?.id || "N/A"}
 // Email: ${emp?.email || empKey} 🎂`;
-//           sendTelegramMessage(message);
+//           queueTelegramMessage(message);
 //         }
 //       });
 //     } catch (err) {
@@ -120,7 +122,7 @@
 // Employee ID: ${emp.id}
 // Email: ${emp.email}
 // New Week Off: ${day}`;
-//       sendTelegramMessage(message);
+//       queueTelegramMessage(message);
 //     });
 //   });
 
@@ -137,16 +139,23 @@
 // export { initNotifications };
 
 
-import { getDatabase, ref, onChildAdded, onChildChanged, get } from "firebase/database";
-import { app } from "./lib/firebase.js"; // your existing firebase.js
-import { queueTelegramMessage } from "./utils/telegramQueue.js"; // use queue
+// worker.js
+import { 
+  getDatabase, 
+  ref, 
+  onChildAdded, 
+  onChildChanged, 
+  get 
+} from "firebase/database";
+import { app } from "./lib/firebase.js";
+import { queueTelegramMessage } from "./utils/telegramQueue.js";
 import cron from "node-cron";
 
 // Firebase DB
 const db = getDatabase(app);
 
 // ======================
-// Fetch employees
+// Employee data cache
 // ======================
 let employeesData = [];
 
@@ -167,13 +176,64 @@ const getEmployeeByEmail = (email) => {
 };
 
 // ======================
-// Initialize notifications
+// Setup Attendance Watcher (per day)
+// ======================
+const setupLoginWatcher = () => {
+  const today = new Date().toISOString().split("T")[0]; // e.g. 2025-08-31
+  const loginRef = ref(db, `attendance/${today}`);
+
+  console.log(`Watching logins for date: ${today}`);
+
+  // New login (child added)
+  onChildAdded(loginRef, (snapshot) => {
+    const data = snapshot.val() || {};
+    const emp = getEmployeeByEmail(data.email);
+
+    const locationAddress =
+      typeof data.location === "string"
+        ? data.location
+        : data.location?.address || "N/A";
+
+    const message = `✅ Employee Login:
+Employee: ${emp?.name || "N/A"}
+Employee ID: ${emp?.id || "N/A"}
+Email: ${emp?.email || data.email || snapshot.key}
+Date: ${data.date || today}
+Time: ${data.istLoginTime || "N/A"}
+Location: ${locationAddress}
+Device: ${data.device || "N/A"}`;
+
+    console.log("Login detected:", message);
+    queueTelegramMessage(message);
+  });
+
+  // If login details change (time, location, device)
+  onChildChanged(loginRef, (snapshot) => {
+    const data = snapshot.val() || {};
+    const emp = getEmployeeByEmail(data.email);
+
+    const message = `✏️ Employee Login Updated:
+Employee: ${emp?.name || "N/A"}
+Employee ID: ${emp?.id || "N/A"}
+Email: ${emp?.email || data.email || snapshot.key}
+Date: ${data.date || today}
+Time: ${data.istLoginTime || "N/A"}
+Location: ${data.location?.address || data.location || "N/A"}
+Device: ${data.device || "N/A"}`;
+
+    console.log("Login updated:", message);
+    queueTelegramMessage(message);
+  });
+};
+
+// ======================
+// Initialize Notifications
 // ======================
 const initNotifications = async () => {
   await fetchEmployees();
   console.log("Notification worker started ✅");
 
-  // Leave requests
+  // --- Leave Requests ---
   const leaveRef = ref(db, "leaveRequests");
   onChildAdded(leaveRef, (snapshot) => {
     const leave = snapshot.val();
@@ -203,28 +263,14 @@ Status: ${leave.status}`;
     queueTelegramMessage(message);
   });
 
-  // Employee logins
-  const loginRef = ref(db, "attendance");
-  onChildAdded(loginRef, (snapshot) => {
-    const date = snapshot.key;
-    const employeesLogged = snapshot.val() || {};
-    Object.entries(employeesLogged).forEach(([empKey, data]) => {
-      const emp = getEmployeeByEmail(data.email);
-      const locationAddress =
-        typeof data.location === "string" ? data.location : data.location?.address || "N/A";
-      const message = `✅ Employee Login:
-Employee: ${emp?.name || "N/A"}
-Employee ID: ${emp?.id || "N/A"}
-Email: ${emp?.email || data.email || empKey}
-Date: ${data.date || date}
-Time: ${data.istLoginTime || "N/A"}
-Location: ${locationAddress}
-Device: ${data.device || "N/A"}`;
-      queueTelegramMessage(message);
-    });
+  // --- Employee Logins (today only, refreshed daily) ---
+  setupLoginWatcher();
+  cron.schedule("0 0 * * *", () => {
+    console.log("Midnight reset → setting up new login watcher...");
+    setupLoginWatcher();
   });
 
-  // Birthday notifications at 9 AM
+  // --- Birthday Notifications (9 AM) ---
   cron.schedule("0 9 * * *", async () => {
     try {
       const birthdaysSnapshot = await get(ref(db, "birthdays"));
@@ -249,7 +295,7 @@ Email: ${emp?.email || empKey} 🎂`;
     }
   });
 
-  // Week off changes
+  // --- Week off changes ---
   const weekOffRef = ref(db, "weekOff");
   onChildAdded(weekOffRef, (snapshot) => {
     const day = snapshot.val();
@@ -263,7 +309,7 @@ New Week Off: ${day}`;
     });
   });
 
-  // Optional: refresh employees every 30 minutes
+  // --- Refresh employees list every 30 minutes ---
   cron.schedule("*/30 * * * *", async () => {
     console.log("Refreshing employees list...");
     await fetchEmployees();
@@ -274,4 +320,3 @@ New Week Off: ${day}`;
 initNotifications();
 
 export { initNotifications };
-
